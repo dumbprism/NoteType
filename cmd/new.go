@@ -9,7 +9,7 @@ import (
 )
 
 
-func createAndAddFile(filename string, title string, entry string, newLineContent string) {
+func createAndAddFile(filename string, title string, entry string, newLineContent string,boldContent string,italicContent string) {
 
 	file, err := os.Create(filename + ".md")
 	if err != nil {
@@ -25,22 +25,27 @@ func createAndAddFile(filename string, title string, entry string, newLineConten
 	var structure = "# " + title + "\n" + style_open + currentDate + style_close + "\n" + "---"
 
 	var fullEntry = entry
-	
-	if newLineContent != "" {
+	if newLineContent != ""{
 		fullEntry = entry + "\n" + newLineContent
 	}
+	
+	if boldContent != ""{
+		fullEntry = fullEntry + " **" + boldContent + "**"
+	}
+
+	if italicContent != ""{
+		fullEntry = fullEntry + " *" + boldContent + "*"
+	}
+
+	
+
 
 	file.WriteString(structure + "\n" + fullEntry)
 
+	fmt.Println("File has been created succesfully")
+
 	// slice to store all files in the slice
 
-	var allFiles[]string
-	allFiles  = append(allFiles,filename)
-	fmt.Println("file " + filename + " has been successfully created.")
-	fmt.Println("The list of files are  : ")
-	for i:=0;i<len(allFiles);i++{
-		fmt.Println(allFiles[i])
-	}
 }
 
 
@@ -61,14 +66,31 @@ var newCmd = &cobra.Command{
 		var newLineEntry,err = cmd.Flags().GetString("newline")
 		if err != nil{
 			fmt.Println(err)
+			return
 		}
+		var bold,bold_err = cmd.Flags().GetString("bold")
 		
-		createAndAddFile(filename, title,entry,newLineEntry)
+		if bold_err != nil{
+			fmt.Println(err)
+			return 
+		}
+
+		var italic,italic_err = cmd.Flags().GetString("italic")
+
+		if italic_err != nil{
+			fmt.Println(err)
+			return 
+		}
+
+		
+		createAndAddFile(filename, title,entry,newLineEntry,bold,italic)
 	},
 }
 
 func init() {
 	newCmd.Flags().StringP("newline","n","","helps to add content in new line")
+	newCmd.Flags().StringP("bold","b","","makes your content bold")
+	newCmd.Flags().StringP("italic","i","","makes your content italic")
 	rootCmd.AddCommand(newCmd)
 
 }
