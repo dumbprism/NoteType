@@ -21,9 +21,8 @@ func updateFile(filename string,content string){
 		file.Close()
 		fmt.Println(err)
 	}
-
-
 }
+
 
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
@@ -43,4 +42,5 @@ var updateCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(updateCmd)
+	updateCmd.LocalFlags().String("help","noteype update <filename> <content>","Used for updating files")
 }

@@ -9,7 +9,7 @@ import (
 )
 
 
-func createAndAddFile(filename string, title string, entry string) {
+func createAndAddFile(filename string, title string, entry string, newLineContent string) {
 
 	file, err := os.Create(filename + ".md")
 	if err != nil {
@@ -24,7 +24,13 @@ func createAndAddFile(filename string, title string, entry string) {
 	var style_close = "</span>"
 	var structure = "# " + title + "\n" + style_open + currentDate + style_close + "\n" + "---"
 
-	file.WriteString(structure + "\n" + entry)
+	var fullEntry = entry
+	
+	if newLineContent != "" {
+		fullEntry = entry + "\n" + newLineContent
+	}
+
+	file.WriteString(structure + "\n" + fullEntry)
 
 	// slice to store all files in the slice
 
@@ -36,8 +42,6 @@ func createAndAddFile(filename string, title string, entry string) {
 		fmt.Println(allFiles[i])
 	}
 }
-
-// prints the list of all files that are present
 
 
 // newCmd represents the new command
@@ -53,12 +57,18 @@ var newCmd = &cobra.Command{
 		var filename = args[0]
 		var title = args[1]
 		var entry = args[2]
-
-		createAndAddFile(filename, title, entry)
+		
+		var newLineEntry,err = cmd.Flags().GetString("newline")
+		if err != nil{
+			fmt.Println(err)
+		}
+		
+		createAndAddFile(filename, title,entry,newLineEntry)
 	},
 }
 
 func init() {
+	newCmd.Flags().StringP("newline","n","","helps to add content in new line")
 	rootCmd.AddCommand(newCmd)
 
 }
