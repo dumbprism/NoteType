@@ -26,8 +26,19 @@ func createAndAddFile(filename string, title string, entry string) {
 
 	file.WriteString(structure + "\n" + entry)
 
+	// slice to store all files in the slice
+
+	var allFiles[]string
+	allFiles  = append(allFiles,filename)
 	fmt.Println("file " + filename + " has been successfully created.")
+	fmt.Println("The list of files are  : ")
+	for i:=0;i<len(allFiles);i++{
+		fmt.Println(allFiles[i])
+	}
 }
+
+// prints the list of all files that are present
+
 
 // newCmd represents the new command
 var newCmd = &cobra.Command{
