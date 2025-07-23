@@ -19,6 +19,9 @@ var rootCmd = &cobra.Command{
 		help them journal things out at times when they cannot carry a book around. 
 		Thus, in this era of digital transformation, it is quite necessary to have it.
 	`,
+	Run: func(cmd *cobra.Command, args []string){
+
+	},
 	}
 func Execute() {
 	err := rootCmd.Execute()
