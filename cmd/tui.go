@@ -123,6 +123,7 @@ type keyMap struct {
 	Delete   key.Binding
 	NewEntry key.Binding
 	Help     key.Binding
+	Edit     key.Binding
 }
 
 var keys = keyMap{
@@ -173,6 +174,10 @@ var keys = keyMap{
 	Help: key.NewBinding(
 		key.WithKeys("?"),
 		key.WithHelp("?", "help"),
+	),
+	Edit: key.NewBinding(
+		key.WithKeys("e"),
+		key.WithHelp("e", "edit"),
 	),
 }
 
@@ -346,8 +351,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case viewerView:
-			m.viewer, cmd = m.viewer.Update(msg)
-			cmds = append(cmds, cmd)
+			switch {
+			case key.Matches(msg, keys.Edit):
+				return m.editCurrentNote()
+			default:
+				m.viewer, cmd = m.viewer.Update(msg)
+				cmds = append(cmds, cmd)
+			}
 		}
 	}
 
@@ -437,7 +447,7 @@ func (m model) renderViewer() string {
 		Foreground(accentColor).
 		Bold(true).
 		MarginBottom(1).
-		Render("👁️  Viewing: " + m.currentNote)
+		Render("👁️  Viewing: " + m.currentNote + " (Press 'e' to edit)")
 
 	viewerBox := panelStyle.Width(m.width - 4).Render(m.viewer.View())
 
@@ -467,7 +477,7 @@ func (m model) renderStatusBar() string {
 	left := lipgloss.NewStyle().
 		Foreground(accentColor).
 		Bold(true).
-		Render(modeStr+" • ") +
+		Render(modeStr + " • ") +
 		lipgloss.NewStyle().
 			Foreground(mutedColor).
 			Render(m.statusMsg)
@@ -503,6 +513,7 @@ func (m model) renderHelp() string {
   
   Actions:       n             New entry
                  d             Delete
+                 e             Edit (in viewer)
                  /             Search
                  Ctrl+S        Save
                  ?             Toggle help
@@ -511,7 +522,7 @@ func (m model) renderHelp() string {
   `
 
 	return helpStyle.
-		Width(m.width-4).
+		Width(m.width - 4).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(mutedColor).
 		Padding(1, 2).
@@ -660,8 +671,9 @@ func (m model) openJournal(filename string) (tea.Model, tea.Cmd) {
 
 	m.mode = viewerView
 	m.currentNote = filename
+	m.isJournal = true
 	m.viewer.SetContent(string(content))
-	m.statusMsg = "Viewing journal entry"
+	m.statusMsg = "Viewing journal entry - Press 'e' to edit"
 	return m, nil
 }
 
@@ -676,9 +688,33 @@ func (m model) openNote(filename string) (tea.Model, tea.Cmd) {
 
 	m.mode = viewerView
 	m.currentNote = filename
+	m.isJournal = false
 	m.viewer.SetContent(string(content))
-	m.statusMsg = "Viewing note"
+	m.statusMsg = "Viewing note - Press 'e' to edit"
 	return m, nil
+}
+
+func (m model) editCurrentNote() (tea.Model, tea.Cmd) {
+	// Load current content into editor
+	var filepath string
+	if m.isJournal {
+		journalDir := getJournalDir()
+		filepath = filepath.Join(journalDir, m.currentNote+".md")
+	} else {
+		filepath = m.currentNote + ".md"
+	}
+
+	content, err := os.ReadFile(filepath)
+	if err != nil {
+		m.statusMsg = "Error loading file for editing: " + err.Error()
+		return m, nil
+	}
+
+	// Switch to editor mode
+	m.mode = editorView
+	m.editor.SetValue(string(content))
+	m.statusMsg = "Editing - Press Ctrl+S to save, Esc to cancel"
+	return m, textarea.Blink
 }
 
 func (m model) saveCurrentNote() (tea.Model, tea.Cmd) {
@@ -703,7 +739,7 @@ func (m model) saveCurrentNote() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.statusMsg = "✅ Journal saved successfully!"
+		m.statusMsg = "✅ Journal saved successfully! Press Esc to go back"
 	} else {
 		// Save regular note
 		filename := m.currentNote
@@ -717,7 +753,7 @@ func (m model) saveCurrentNote() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.statusMsg = "✅ Note saved successfully!"
+		m.statusMsg = "✅ Note saved successfully! Press Esc to go back"
 	}
 
 	return m, nil
