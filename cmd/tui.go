@@ -661,9 +661,9 @@ func (m model) createNewEntry() (tea.Model, tea.Cmd) {
 
 func (m model) openJournal(filename string) (tea.Model, tea.Cmd) {
 	journalDir := getJournalDir()
-	filepath := filepath.Join(journalDir, filename+".md")
+	filePath := filepath.Join(journalDir, filename+".md")
 
-	content, err := os.ReadFile(filepath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		m.statusMsg = "Error opening journal: " + err.Error()
 		return m, nil
@@ -678,9 +678,9 @@ func (m model) openJournal(filename string) (tea.Model, tea.Cmd) {
 }
 
 func (m model) openNote(filename string) (tea.Model, tea.Cmd) {
-	filepath := filename + ".md"
+	filePath := filename + ".md"
 
-	content, err := os.ReadFile(filepath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		m.statusMsg = "Error opening note: " + err.Error()
 		return m, nil
@@ -696,15 +696,15 @@ func (m model) openNote(filename string) (tea.Model, tea.Cmd) {
 
 func (m model) editCurrentNote() (tea.Model, tea.Cmd) {
 	// Load current content into editor
-	var filepath string
+	var filePath string
 	if m.isJournal {
 		journalDir := getJournalDir()
-		filepath = filepath.Join(journalDir, m.currentNote+".md")
+		filePath = filepath.Join(journalDir, m.currentNote+".md")
 	} else {
-		filepath = m.currentNote + ".md"
+		filePath = m.currentNote + ".md"
 	}
 
-	content, err := os.ReadFile(filepath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		m.statusMsg = "Error loading file for editing: " + err.Error()
 		return m, nil
@@ -732,9 +732,9 @@ func (m model) saveCurrentNote() (tea.Model, tea.Cmd) {
 		if filename == "" {
 			filename = time.Now().Format("2006-01-02")
 		}
-		filepath := filepath.Join(journalDir, filename+".md")
+		filePath := filepath.Join(journalDir, filename+".md")
 
-		if err := os.WriteFile(filepath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 			m.statusMsg = "Error saving journal: " + err.Error()
 			return m, nil
 		}
@@ -746,9 +746,9 @@ func (m model) saveCurrentNote() (tea.Model, tea.Cmd) {
 		if filename == "" {
 			filename = fmt.Sprintf("note-%d", time.Now().Unix())
 		}
-		filepath := filename + ".md"
+		filePath := filename + ".md"
 
-		if err := os.WriteFile(filepath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 			m.statusMsg = "Error saving note: " + err.Error()
 			return m, nil
 		}
@@ -760,20 +760,20 @@ func (m model) saveCurrentNote() (tea.Model, tea.Cmd) {
 }
 
 func (m model) deleteSelected() (tea.Model, tea.Cmd) {
-	var filename string
+	var filePath string
 
 	if m.isJournal {
 		if item, ok := m.journalsList.SelectedItem().(noteItem); ok {
-			filename = filepath.Join(getJournalDir(), item.filename+".md")
+			filePath = filepath.Join(getJournalDir(), item.filename+".md")
 		}
 	} else {
 		if item, ok := m.notesList.SelectedItem().(noteItem); ok {
-			filename = item.filename + ".md"
+			filePath = item.filename + ".md"
 		}
 	}
 
-	if filename != "" {
-		if err := os.Remove(filename); err != nil {
+	if filePath != "" {
+		if err := os.Remove(filePath); err != nil {
 			m.statusMsg = "Error deleting: " + err.Error()
 		} else {
 			m.statusMsg = "✅ Deleted successfully"
