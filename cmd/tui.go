@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
+	"sort"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -115,8 +115,8 @@ const (
 
 // Key bindings
 type keyMap struct {
-	Up       key.binding
-	Down     key.binding
+	Up       key.Binding
+	Down     key.Binding
 	Left     key.Binding
 	Right    key.Binding
 	Enter    key.Binding
