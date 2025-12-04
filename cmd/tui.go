@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
-	"sort"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -195,7 +195,6 @@ type menuItem struct {
 func (m menuItem) Title() string       { return m.icon + " " + m.title }
 func (m menuItem) Description() string { return m.desc }
 func (m menuItem) FilterValue() string { return m.title }
-func (m menuItem) String() string      { return m.Title() + "\n  " + m.Description() }
 
 // Note item
 type noteItem struct {
@@ -208,7 +207,6 @@ type noteItem struct {
 func (n noteItem) Title() string       { return "📄 " + n.title }
 func (n noteItem) Description() string { return n.date + " • " + n.size }
 func (n noteItem) FilterValue() string { return n.title }
-func (n noteItem) String() string      { return n.Title() + "\n  " + n.Description() }
 
 // Tag item
 type tagItem struct {
@@ -219,7 +217,6 @@ type tagItem struct {
 func (t tagItem) Title() string       { return "🏷️  #" + t.tag }
 func (t tagItem) Description() string { return fmt.Sprintf("%d entries", t.count) }
 func (t tagItem) FilterValue() string { return t.tag }
-func (t tagItem) String() string      { return t.Title() + "\n  " + t.Description() }
 
 // Template item
 type templateItem struct {
@@ -230,7 +227,6 @@ type templateItem struct {
 func (t templateItem) Title() string       { return "📋 " + t.name }
 func (t templateItem) Description() string { return t.desc }
 func (t templateItem) FilterValue() string { return t.name }
-func (t templateItem) String() string      { return t.Title() + "\n  " + t.Description() }
 
 // Theme item
 type themeItem struct {
@@ -247,61 +243,32 @@ func (t themeItem) Title() string {
 }
 func (t themeItem) Description() string { return "Press Enter to apply" }
 func (t themeItem) FilterValue() string { return t.name }
-func (t themeItem) String() string {
-	if t.current {
-		return "✓ " + t.display + " (Current)"
-	}
-	return t.display
-}
 
 // Model
 type model struct {
-	mode         viewMode
-	width        int
-	height       int
-	menuList     list.Model
-	notesList    list.Model
-	journalsList list.Model
-	tagsList     list.Model
+	mode          viewMode
+	width         int
+	height        int
+	menuList      list.Model
+	notesList     list.Model
+	journalsList  list.Model
+	tagsList      list.Model
 	templatesList list.Model
-	themesList   list.Model
-	editor       textarea.Model
-	viewer       viewport.Model
-	statusMsg    string
-	currentNote  string
-	isJournal    bool
-	showHelp     bool
-	selectedMenu int
-}
-
-// Custom delegate for themed list items
-type themedDelegate struct {
-	list.DefaultDelegate
-}
-
-func (d themedDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	str := item.(fmt.Stringer).String()
-	
-	fn := normalItemStyle.Render
-	if index == m.Index() {
-		fn = selectedItemStyle.Render
-	}
-	
-	fmt.Fprint(w, fn(str))
-}
-
-func newThemedDelegate() themedDelegate {
-	d := themedDelegate{
-		DefaultDelegate: list.NewDefaultDelegate(),
-	}
-	return d
+	themesList    list.Model
+	editor        textarea.Model
+	viewer        viewport.Model
+	statusMsg     string
+	currentNote   string
+	isJournal     bool
+	showHelp      bool
+	selectedMenu  int
 }
 
 func initialTUIModel() model {
 	// Load and apply theme
 	theme := loadTheme()
 	applyThemeToStyles(theme)
-	
+
 	// Menu items
 	items := []list.Item{
 		menuItem{title: "Today's Journal", desc: "Write or view today's journal entry", icon: "📔"},
@@ -316,29 +283,20 @@ func initialTUIModel() model {
 		menuItem{title: "Settings", desc: "Configure NoteType", icon: "⚙️"},
 	}
 
-	menuList := list.New(items, newThemedDelegate(), 0, 0)
+	menuList := list.New(items, list.NewDefaultDelegate(), 0, 0)
 	menuList.Title = "NoteType - Main Menu"
 	menuList.SetShowStatusBar(false)
 	menuList.SetFilteringEnabled(false)
 	menuList.Styles.Title = titleStyle
-	menuList.Styles.TitleBar = lipgloss.NewStyle().
-		Background(bgColor).
-		Foreground(textColor).
-		Padding(0, 1)
 
 	// Initialize textarea for editor
 	ta := textarea.New()
 	ta.Placeholder = "Start writing your thoughts..."
 	ta.Focus()
 	ta.CharLimit = 0
-	ta.FocusedStyle.CursorLine = lipgloss.NewStyle().Background(bgAltColor)
-	ta.FocusedStyle.Base = lipgloss.NewStyle().Foreground(textColor)
 
 	// Initialize viewport for viewer
 	vp := viewport.New(0, 0)
-	vp.Style = lipgloss.NewStyle().
-		Foreground(textColor).
-		Background(bgColor)
 
 	return model{
 		mode:         menuView,
@@ -454,7 +412,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewer, cmd = m.viewer.Update(msg)
 				cmds = append(cmds, cmd)
 			}
-			
+
 		case tagsView:
 			switch {
 			case key.Matches(msg, keys.Enter):
@@ -466,7 +424,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.tagsList, cmd = m.tagsList.Update(msg)
 				cmds = append(cmds, cmd)
 			}
-			
+
 		case templatesView:
 			switch {
 			case key.Matches(msg, keys.Enter):
@@ -478,7 +436,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.templatesList, cmd = m.templatesList.Update(msg)
 				cmds = append(cmds, cmd)
 			}
-			
+
 		case themesView:
 			switch {
 			case key.Matches(msg, keys.Enter):
@@ -532,22 +490,14 @@ func (m model) View() string {
 	// Help text
 	help := m.renderHelp()
 
-	// Combine all elements with background
-	page := lipgloss.JoinVertical(
+	// Combine all elements
+	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
 		content,
 		status,
 		help,
 	)
-	
-	// Apply full background color
-	return lipgloss.NewStyle().
-		Background(bgColor).
-		Foreground(textColor).
-		Width(m.width).
-		Height(m.height).
-		Render(page)
 }
 
 func (m model) renderEditor() string {
@@ -560,7 +510,6 @@ func (m model) renderEditor() string {
 
 	header := lipgloss.NewStyle().
 		Foreground(accentColor).
-		Background(bgColor).
 		Bold(true).
 		MarginBottom(1).
 		Render(headerText)
@@ -573,15 +522,13 @@ func (m model) renderEditor() string {
 		inactiveButtonStyle.Render("❌ Cancel (Esc)"),
 	)
 
-	return lipgloss.NewStyle().
-		Background(bgColor).
-		Render(lipgloss.JoinVertical(
-			lipgloss.Left,
-			header,
-			editorBox,
-			"\n",
-			buttons,
-		))
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		header,
+		editorBox,
+		"\n",
+		buttons,
+	)
 }
 
 func (m model) renderList() string {
@@ -594,20 +541,17 @@ func (m model) renderList() string {
 func (m model) renderViewer() string {
 	header := lipgloss.NewStyle().
 		Foreground(accentColor).
-		Background(bgColor).
 		Bold(true).
 		MarginBottom(1).
 		Render("👁️  Viewing: " + m.currentNote + " (Press 'e' to edit)")
 
 	viewerBox := panelStyle.Width(m.width - 4).Render(m.viewer.View())
 
-	return lipgloss.NewStyle().
-		Background(bgColor).
-		Render(lipgloss.JoinVertical(
-			lipgloss.Left,
-			header,
-			viewerBox,
-		))
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		header,
+		viewerBox,
+	)
 }
 
 func (m model) renderStatusBar() string {
@@ -635,7 +579,7 @@ func (m model) renderStatusBar() string {
 	left := lipgloss.NewStyle().
 		Foreground(accentColor).
 		Bold(true).
-		Render(modeStr + " • ") +
+		Render(modeStr+" • ") +
 		lipgloss.NewStyle().
 			Foreground(mutedColor).
 			Render(m.statusMsg)
@@ -684,12 +628,10 @@ func (m model) renderHelp() string {
   Press ? again to hide help
   `
 
-	return lipgloss.NewStyle().
-		Foreground(textColor).
-		Background(bgColor).
-		Width(m.width - 4).
+	return helpStyle.
+		Width(m.width-4).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(accentColor).
+		BorderForeground(mutedColor).
 		Padding(1, 2).
 		Render(helpText)
 }
@@ -746,12 +688,12 @@ func (m model) loadTags() (tea.Model, tea.Cmd) {
 		m.statusMsg = "Error loading tags: " + err.Error()
 		return m, nil
 	}
-	
+
 	if len(tagCounts) == 0 {
 		m.statusMsg = "No tags found. Add #tags to your notes!"
 		return m, nil
 	}
-	
+
 	// Sort by count
 	type tagCount struct {
 		tag   string
@@ -767,7 +709,7 @@ func (m model) loadTags() (tea.Model, tea.Cmd) {
 		}
 		return tags[i].count > tags[j].count
 	})
-	
+
 	// Create list items
 	var items []list.Item
 	for _, tc := range tags {
@@ -776,17 +718,13 @@ func (m model) loadTags() (tea.Model, tea.Cmd) {
 			count: tc.count,
 		})
 	}
-	
-	m.tagsList = list.New(items, newThemedDelegate(), m.width-4, m.height-8)
+
+	m.tagsList = list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-8)
 	m.tagsList.Title = "🏷️  All Tags - Press Enter to filter"
 	m.tagsList.Styles.Title = titleStyle
-	m.tagsList.Styles.TitleBar = lipgloss.NewStyle().
-		Background(bgColor).
-		Foreground(textColor).
-		Padding(0, 1)
 	m.mode = tagsView
 	m.statusMsg = fmt.Sprintf("Found %d tags", len(items))
-	
+
 	return m, nil
 }
 
@@ -797,12 +735,12 @@ func (m model) showEntriesWithTag(tag string) (tea.Model, tea.Cmd) {
 		m.statusMsg = "Error finding files: " + err.Error()
 		return m, nil
 	}
-	
+
 	if len(files) == 0 {
 		m.statusMsg = fmt.Sprintf("No entries found with #%s", tag)
 		return m, nil
 	}
-	
+
 	// Create list items
 	var items []list.Item
 	for _, file := range files {
@@ -816,25 +754,21 @@ func (m model) showEntriesWithTag(tag string) (tea.Model, tea.Cmd) {
 			size:     formatSizeInTUI(info.Size()),
 		})
 	}
-	
-	m.notesList = list.New(items, newThemedDelegate(), m.width-4, m.height-8)
+
+	m.notesList = list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-8)
 	m.notesList.Title = fmt.Sprintf("📄 Entries tagged with #%s", tag)
 	m.notesList.Styles.Title = titleStyle
-	m.notesList.Styles.TitleBar = lipgloss.NewStyle().
-		Background(bgColor).
-		Foreground(textColor).
-		Padding(0, 1)
 	m.mode = listView
 	m.isJournal = false
 	m.statusMsg = fmt.Sprintf("Found %d entries with #%s", len(items), tag)
-	
+
 	return m, nil
 }
 
 // Load templates view
 func (m model) loadTemplates() (tea.Model, tea.Cmd) {
 	templates := []string{"daily", "meeting", "project", "weekly", "idea", "grateful"}
-	
+
 	var items []list.Item
 	for _, name := range templates {
 		items = append(items, templateItem{
@@ -842,17 +776,13 @@ func (m model) loadTemplates() (tea.Model, tea.Cmd) {
 			desc: getTemplateDescription(name),
 		})
 	}
-	
-	m.templatesList = list.New(items, newThemedDelegate(), m.width-4, m.height-8)
+
+	m.templatesList = list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-8)
 	m.templatesList.Title = "📋 Templates - Press Enter to use"
 	m.templatesList.Styles.Title = titleStyle
-	m.templatesList.Styles.TitleBar = lipgloss.NewStyle().
-		Background(bgColor).
-		Foreground(textColor).
-		Padding(0, 1)
 	m.mode = templatesView
 	m.statusMsg = fmt.Sprintf("%d templates available", len(items))
-	
+
 	return m, nil
 }
 
@@ -864,7 +794,7 @@ func (m model) createFromTemplate(templateName string) (tea.Model, tea.Cmd) {
 		m.statusMsg = "Template not found"
 		return m, nil
 	}
-	
+
 	// Prepare variables
 	now := time.Now()
 	vars := map[string]string{
@@ -876,17 +806,17 @@ func (m model) createFromTemplate(templateName string) (tea.Model, tea.Cmd) {
 		"month":    now.Format("January"),
 		"day":      now.Format("Monday"),
 	}
-	
+
 	// Substitute variables
 	finalContent := substituteVariables(templateContent, vars)
-	
+
 	// Switch to editor with template content
 	m.mode = editorView
 	m.isJournal = false
 	m.currentNote = fmt.Sprintf("%s-%d", templateName, time.Now().Unix())
 	m.editor.SetValue(finalContent)
 	m.statusMsg = fmt.Sprintf("Using %s template - Edit and save with Ctrl+S", templateName)
-	
+
 	return m, textarea.Blink
 }
 
@@ -894,7 +824,7 @@ func (m model) createFromTemplate(templateName string) (tea.Model, tea.Cmd) {
 func (m model) loadThemes() (tea.Model, tea.Cmd) {
 	currentTheme := loadTheme()
 	themeNames := []string{"violet", "dracula", "nord", "gruvbox", "solarized", "monokai", "tokyo", "catppuccin"}
-	
+
 	var items []list.Item
 	for _, name := range themeNames {
 		theme := themes[name]
@@ -904,17 +834,13 @@ func (m model) loadThemes() (tea.Model, tea.Cmd) {
 			current: theme.Name == currentTheme.Name,
 		})
 	}
-	
-	m.themesList = list.New(items, newThemedDelegate(), m.width-4, m.height-8)
+
+	m.themesList = list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-8)
 	m.themesList.Title = "🎨 Themes - Press Enter to apply"
 	m.themesList.Styles.Title = titleStyle
-	m.themesList.Styles.TitleBar = lipgloss.NewStyle().
-		Background(bgColor).
-		Foreground(textColor).
-		Padding(0, 1)
 	m.mode = themesView
 	m.statusMsg = "Select a theme and press Enter"
-	
+
 	return m, nil
 }
 
@@ -925,52 +851,22 @@ func (m model) applyTheme(themeName string) (tea.Model, tea.Cmd) {
 		m.statusMsg = "Theme not found"
 		return m, nil
 	}
-	
+
 	// Save theme
 	if err := saveTheme(themeName); err != nil {
 		m.statusMsg = "Error saving theme: " + err.Error()
 		return m, nil
 	}
-	
-	// Apply theme styles
+
+	// Apply theme
 	applyThemeToStyles(theme)
-	
-	// Recreate menu list with new themed delegate
-	items := []list.Item{
-		menuItem{title: "Today's Journal", desc: "Write or view today's journal entry", icon: "📔"},
-		menuItem{title: "All Journals", desc: "Browse all your journal entries", icon: "📚"},
-		menuItem{title: "Notes", desc: "Manage your notes", icon: "📝"},
-		menuItem{title: "New Note", desc: "Create a new note", icon: "✨"},
-		menuItem{title: "Templates", desc: "Create from template", icon: "📋"},
-		menuItem{title: "Tags", desc: "Browse notes by tags", icon: "🏷️"},
-		menuItem{title: "Search", desc: "Search across all entries", icon: "🔍"},
-		menuItem{title: "Themes", desc: "Change TUI appearance", icon: "🎨"},
-		menuItem{title: "Export", desc: "Export to PDF/HTML", icon: "📤"},
-		menuItem{title: "Settings", desc: "Configure NoteType", icon: "⚙️"},
-	}
-	
-	m.menuList = list.New(items, newThemedDelegate(), m.width-4, m.height-8)
-	m.menuList.Title = "NoteType - Main Menu"
-	m.menuList.SetShowStatusBar(false)
-	m.menuList.SetFilteringEnabled(false)
-	m.menuList.Styles.Title = titleStyle
-	m.menuList.Styles.TitleBar = lipgloss.NewStyle().
-		Background(bgColor).
-		Foreground(textColor).
-		Padding(0, 1)
-	
-	// Update editor and viewer styles
-	m.editor.FocusedStyle.CursorLine = lipgloss.NewStyle().Background(bgAltColor)
-	m.editor.FocusedStyle.Base = lipgloss.NewStyle().Foreground(textColor)
-	m.viewer.Style = lipgloss.NewStyle().
-		Foreground(textColor).
-		Background(bgColor)
-	
-	m.statusMsg = fmt.Sprintf("✅ Applied theme: %s - All UI elements updated!", theme.Name)
-	
+
+	// Reload menu with new styles
+	m.statusMsg = fmt.Sprintf("✅ Applied theme: %s", theme.Name)
+
 	// Go back to menu to see the change
 	m.mode = menuView
-	
+
 	return m, nil
 }
 
@@ -1013,13 +909,9 @@ func (m model) loadJournals() (tea.Model, tea.Cmd) {
 		})
 	}
 
-	m.journalsList = list.New(items, newThemedDelegate(), m.width-4, m.height-8)
+	m.journalsList = list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-8)
 	m.journalsList.Title = "📚 Journal Entries"
 	m.journalsList.Styles.Title = titleStyle
-	m.journalsList.Styles.TitleBar = lipgloss.NewStyle().
-		Background(bgColor).
-		Foreground(textColor).
-		Padding(0, 1)
 	m.mode = listView
 	m.isJournal = true
 	m.statusMsg = fmt.Sprintf("Found %d journal entries", len(items))
@@ -1046,13 +938,9 @@ func (m model) loadNotes() (tea.Model, tea.Cmd) {
 		})
 	}
 
-	m.notesList = list.New(items, newThemedDelegate(), m.width-4, m.height-8)
+	m.notesList = list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-8)
 	m.notesList.Title = "📝 Notes"
 	m.notesList.Styles.Title = titleStyle
-	m.notesList.Styles.TitleBar = lipgloss.NewStyle().
-		Background(bgColor).
-		Foreground(textColor).
-		Padding(0, 1)
 	m.mode = listView
 	m.isJournal = false
 	m.statusMsg = fmt.Sprintf("Found %d notes", len(items))
