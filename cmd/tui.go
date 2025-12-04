@@ -222,13 +222,21 @@ type model struct {
 }
 
 func initialTUIModel() model {
+	// Load and apply theme
+	theme := loadTheme()
+	applyThemeToStyles(theme)
+
 	// Menu items
 	items := []list.Item{
 		menuItem{title: "Today's Journal", desc: "Write or view today's journal entry", icon: "📔"},
 		menuItem{title: "All Journals", desc: "Browse all your journal entries", icon: "📚"},
 		menuItem{title: "Notes", desc: "Manage your notes", icon: "📝"},
 		menuItem{title: "New Note", desc: "Create a new note", icon: "✨"},
+		menuItem{title: "Templates", desc: "Create from template", icon: "📋"},
+		menuItem{title: "Tags", desc: "Browse notes by tags", icon: "🏷️"},
 		menuItem{title: "Search", desc: "Search across all entries", icon: "🔍"},
+		menuItem{title: "Themes", desc: "Change TUI appearance", icon: "🎨"},
+		menuItem{title: "Export", desc: "Export to PDF/HTML", icon: "📤"},
 		menuItem{title: "Settings", desc: "Configure NoteType", icon: "⚙️"},
 	}
 
@@ -477,7 +485,7 @@ func (m model) renderStatusBar() string {
 	left := lipgloss.NewStyle().
 		Foreground(accentColor).
 		Bold(true).
-		Render(modeStr + " • ") +
+		Render(modeStr+" • ") +
 		lipgloss.NewStyle().
 			Foreground(mutedColor).
 			Render(m.statusMsg)
@@ -522,7 +530,7 @@ func (m model) renderHelp() string {
   `
 
 	return helpStyle.
-		Width(m.width - 4).
+		Width(m.width-4).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(mutedColor).
 		Padding(1, 2).
@@ -554,9 +562,21 @@ func (m model) handleMenuSelection(title string) (tea.Model, tea.Cmd) {
 		return m.loadNotes()
 	case "New Note":
 		return m.createNewNote()
+	case "Templates":
+		m.statusMsg = "Templates: Use CLI - notetype template list"
+		return m, nil
+	case "Tags":
+		m.statusMsg = "Tags: Use CLI - notetype tags list"
+		return m, nil
 	case "Search":
 		m.mode = searchView
 		m.statusMsg = "Search feature"
+		return m, nil
+	case "Themes":
+		m.statusMsg = "Themes: Use CLI - notetype theme list"
+		return m, nil
+	case "Export":
+		m.statusMsg = "Export: Use CLI - notetype export <file>"
 		return m, nil
 	case "Settings":
 		m.statusMsg = "Settings not yet implemented"
